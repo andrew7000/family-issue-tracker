@@ -1,0 +1,32 @@
+{
+  "name": "family-issue-tracker",
+  "version": "1.0.0",
+  "description": "A family issue tracking application",
+  "main": "index.js",
+  "scripts": {
+    "start": "node start.js",
+    "start:dev": "node start.js",
+    "dev": "nodemon backend/server.js",
+    "client": "cd frontend && npm start",
+    "dev:full": "concurrently \"npm run dev\" \"npm run client\""
+  },
+  "keywords": [
+    "family",
+    "issues",
+    "tracking"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "tree-kill": "^1.2.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.2",
+    "prisma": "^5.22.0"
+  }
+} 
