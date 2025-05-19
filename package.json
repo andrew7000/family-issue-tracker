@@ -7,8 +7,9 @@
     "start": "node start.js",
     "start:dev": "node start.js",
     "dev": "nodemon backend/server.js",
-    "client": "cd frontend && npm start",
-    "dev:full": "concurrently \"npm run dev\" \"npm run client\""
+    "client": "cd frontend && set PORT=3003 && set BROWSER=none && npm start",
+    "dev:full": "node start-dev.js",
+    "cleanup": "taskkill /F /IM node.exe || exit 0"
   },
   "keywords": [
     "family",
