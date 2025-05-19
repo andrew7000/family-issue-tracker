@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import './App.css';
 
 // Interface for issues
@@ -184,6 +184,16 @@ function Issues({ issues, deleteIssue }: { issues: Issue[]; deleteIssue: (id: nu
   const [filterObserver, setFilterObserver] = useState('');
   const navigate = useNavigate();
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const location = useLocation();
+
+  // Initialize filterPerson from URL query parameter
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const personFilter = params.get('filterPerson');
+    if (personFilter) {
+      setFilterPerson(personFilter);
+    }
+  }, [location.search]);
 
   const handleSort = (field: keyof Issue) => {
     if (field === sortField) {
@@ -202,8 +212,7 @@ function Issues({ issues, deleteIssue }: { issues: Issue[]; deleteIssue: (id: nu
                          (issue.description && issue.description.toLowerCase().includes(filterText.toLowerCase())) ||
                          (issue.hashtags && issue.hashtags.toLowerCase().includes(filterText.toLowerCase()));
       const matchesPerson = !filterPerson || 
-                           issue.responsible.includes(filterPerson) || 
-                           issue.observer === filterPerson;
+                           issue.responsible.includes(filterPerson);
       const matchesSeverity = !filterSeverity || (issue.severity === filterSeverity);
       const matchesObserver = !filterObserver || (issue.observer === filterObserver);
       return matchesText && matchesPerson && matchesSeverity && matchesObserver;
@@ -763,6 +772,7 @@ function EditIssue({ issues, updateIssue }: { issues: Issue[]; updateIssue: (iss
 function Dashboard({ issues }: { issues: Issue[] }) {
   const [selectedPeriod, setSelectedPeriod] = useState('all_time');
   const [tooltip, setTooltip] = useState<{ visible: boolean; content: string; x: number; y: number }>({ visible: false, content: '', x: 0, y: 0 });
+  const navigate = useNavigate();
 
   const filterIssuesByPeriod = (issues: Issue[], period: string): Issue[] => {
     const now = new Date();
@@ -953,7 +963,24 @@ function Dashboard({ issues }: { issues: Issue[] }) {
             {issuesByPerson.map(person => (
               <div key={person.name} style={{ marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <div style={{ width: '120px', fontWeight: 'bold' }}>{person.name}</div>
+                  <div 
+                    style={{ 
+                      width: '120px', 
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      color: '#222',
+                      transition: 'color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#a00';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = '#222';
+                    }}
+                    onClick={() => navigate(`/issues?filterPerson=${encodeURIComponent(person.name)}`)}
+                  >
+                    {person.name}
+                  </div>
                   <div style={{ flex: 1, height: '24px', background: '#f0f0f0', borderRadius: '4px', overflow: 'hidden' }}>
                     {person.severityBreakdown.map(({ severity, count }) => {
                       const width = (count / maxIssues) * 100;
