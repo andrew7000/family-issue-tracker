@@ -242,7 +242,7 @@ function Issues({ issues, deleteIssue }: { issues: Issue[]; deleteIssue: (id: nu
         <span className="page-title">Issues Log</span>
       </div>
       <div className="page-desc" style={{ paddingLeft: '2rem', paddingRight: '2rem', marginBottom: '0.5rem' }}>
-        A comprehensive record of all family issues and their current status.
+        A comprehensive record of all family issues.
       </div>
 
       <div style={{ marginTop: '2rem', marginBottom: '1rem', display: 'flex', gap: '1rem' }}>
@@ -270,31 +270,31 @@ function Issues({ issues, deleteIssue }: { issues: Issue[]; deleteIssue: (id: nu
           <thead>
             <tr style={{ background: '#f5f5f5' }}>
               <th 
-                style={{ padding: '1rem', textAlign: 'left', cursor: 'pointer' }}
+                style={{ padding: '1rem', textAlign: 'left', cursor: 'pointer', width: '20%' }}
                 onClick={() => handleSort('title')}
               >
                 Title {sortField === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th 
-                style={{ padding: '1rem', textAlign: 'left', cursor: 'pointer' }}
+                style={{ padding: '1rem', textAlign: 'left', cursor: 'pointer', width: '20%' }}
                 onClick={() => handleSort('date')}
               >
                 Date {sortField === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th 
-                style={{ padding: '1rem', textAlign: 'left', cursor: 'pointer' }}
+                style={{ padding: '1rem', textAlign: 'left', cursor: 'pointer', width: '20%' }}
                 onClick={() => handleSort('responsible')}
               >
                 Responsible {sortField === 'responsible' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th 
-                style={{ padding: '1rem', textAlign: 'left', cursor: 'pointer' }}
+                style={{ padding: '1rem', textAlign: 'left', cursor: 'pointer', width: '20%' }}
                 onClick={() => handleSort('observer')}
               >
                 Reported By {sortField === 'observer' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th 
-                style={{ padding: '1rem', textAlign: 'left', cursor: 'pointer' }}
+                style={{ padding: '1rem', textAlign: 'left', cursor: 'pointer', width: '20%' }}
                 onClick={() => handleSort('severity')}
               >
                 Severity {sortField === 'severity' && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -334,8 +334,12 @@ function Issues({ issues, deleteIssue }: { issues: Issue[]; deleteIssue: (id: nu
                   style={{ width: '90%' }}
                 >
                   <option value="">All</option>
-                  {uniqueSeverities.map(sev => (
-                    <option key={sev} value={sev}>{sev}</option>
+                  {['1', '2', '3'].map(sev => (
+                    <option key={sev} value={sev}>
+                      {sev === '1' ? '1 - Low' :
+                       sev === '2' ? '2 - Medium' :
+                       '3 - High'}
+                    </option>
                   ))}
                 </select>
               </th>
@@ -352,11 +356,34 @@ function Issues({ issues, deleteIssue }: { issues: Issue[]; deleteIssue: (id: nu
                   borderTop: '1px solid #eee'
                 }}
               >
-                <td style={{ padding: '1rem' }}>{issue.title}</td>
-                <td style={{ padding: '1rem' }}>{issue.date}</td>
-                <td style={{ padding: '1rem' }}>{issue.responsible.join(', ')}</td>
-                <td style={{ padding: '1rem' }}>{issue.observer}</td>
-                <td style={{ padding: '1rem' }}>{issue.severity ?? ''}</td>
+                <td style={{ padding: '1rem', width: '20%' }}>{issue.title}</td>
+                <td style={{ padding: '1rem', width: '20%' }}>{issue.date}</td>
+                <td style={{ padding: '1rem', width: '20%' }}>{issue.responsible.join(', ')}</td>
+                <td style={{ padding: '1rem', width: '20%' }}>{issue.observer}</td>
+                <td style={{ padding: '1rem', width: '20%' }}>
+                  {/* Container for severity bar and text */}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    {/* Severity bar */}
+                    <div style={{
+                      width: '6px',
+                      height: '20px', // Adjust height as needed
+                      marginRight: '8px',
+                      borderRadius: '3px',
+                      backgroundColor:
+                        issue.severity === '1' ? '#ffb74d' :
+                        issue.severity === '2' ? '#f57c00' :
+                        issue.severity === '3' ? '#d32f2f' :
+                        'transparent', // Default color if severity is not 1, 2, or 3
+                    }}></div>
+                    {/* Severity text */}
+                    <div>
+                      {issue.severity === '1' ? '1 - Low' :
+                       issue.severity === '2' ? '2 - Medium' :
+                       issue.severity === '3' ? '3 - High' :
+                       issue.severity ?? ''}
+                    </div>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -734,11 +761,37 @@ function EditIssue({ issues, updateIssue }: { issues: Issue[]; updateIssue: (iss
 }
 
 function Dashboard({ issues }: { issues: Issue[] }) {
-  // Calculate statistics
-  const totalIssues = issues.length;
+  const [selectedPeriod, setSelectedPeriod] = useState('all_time');
+  const [tooltip, setTooltip] = useState<{ visible: boolean; content: string; x: number; y: number }>({ visible: false, content: '', x: 0, y: 0 });
+
+  const filterIssuesByPeriod = (issues: Issue[], period: string): Issue[] => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Normalize 'now' to the start of the day
+
+    return issues.filter(issue => {
+      const issueDate = new Date(issue.date);
+      issueDate.setHours(0, 0, 0, 0); // Normalize issue date to the start of the day
+
+      if (period === 'all_time') {
+        return true;
+      } else if (period === 'past_30_days') {
+        const past30Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+        return issueDate >= past30Days && issueDate <= now;
+      } else if (period === 'past_7_days') {
+        const past7Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+        return issueDate >= past7Days && issueDate <= now;
+      }
+      return true; // Default to all time if period is unrecognized
+    });
+  };
+
+  const filteredIssues = filterIssuesByPeriod(issues, selectedPeriod);
+
+  // Calculate statistics based on filtered issues
+  const totalIssues = filteredIssues.length;
   
   // Calculate severity percentages for levels 1-3
-  const severityCounts = issues.reduce((acc, issue) => {
+  const severityCounts = filteredIssues.reduce((acc, issue) => {
     const severity = issue.severity || 'Unspecified';
     acc[severity] = (acc[severity] || 0) + 1;
     return acc;
@@ -747,12 +800,12 @@ function Dashboard({ issues }: { issues: Issue[] }) {
   const severityPercentages = ['1', '2', '3'].map(level => ({
     level,
     count: severityCounts[level] || 0,
-    percentage: Math.round(((severityCounts[level] || 0) / totalIssues) * 100)
+    percentage: totalIssues > 0 ? Math.round(((severityCounts[level] || 0) / totalIssues) * 100) : 0
   }));
 
   // Calculate issues by person with severity breakdown
   const issuesByPerson = allPeople.map(person => {
-    const personIssues = issues.filter(issue => issue.responsible.includes(person));
+    const personIssues = filteredIssues.filter(issue => issue.responsible.includes(person));
     const total = personIssues.length;
     const severityBreakdown = personIssues.reduce((acc, issue) => {
       const severity = issue.severity || 'Unspecified';
@@ -771,10 +824,10 @@ function Dashboard({ issues }: { issues: Issue[] }) {
     };
   }).sort((a, b) => b.total - a.total); // Sort by total issues descending
 
-  // Find the maximum number of issues for scaling
-  const maxIssues = Math.max(...issuesByPerson.map(p => p.total));
+  // Find the maximum number of issues for scaling based on filtered issues
+  const maxIssues = Math.max(...issuesByPerson.map(p => p.total), 1); // Ensure at least 1 for scaling
 
-  // Calculate monthly trends
+  // Calculate monthly trends (still based on all issues for the chart)
   const getMonthYear = (dateStr: string) => {
     const date = new Date(dateStr);
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -799,6 +852,13 @@ function Dashboard({ issues }: { issues: Issue[] }) {
     .sort()
     .slice(-6);
 
+  // Calculate the maximum count for any single severity across all displayed months for scaling
+  const maxSeverityCountAcrossAllMonths = sortedMonths.reduce((max, month) => {
+    const data = monthlyData[month];
+    const maxForMonth = Math.max(...Object.values(data.bySeverity).map(count => count || 0), 0);
+    return Math.max(max, maxForMonth);
+  }, 0) || 1; // Ensure max is at least 1 to avoid division by zero
+
   // Color scheme with high contrast orange-to-red gradient
   const colors = {
     high: '#d32f2f',    // Bright red
@@ -815,10 +875,52 @@ function Dashboard({ issues }: { issues: Issue[] }) {
         Overview of family issues and trends
       </div>
 
+      {/* Time Period Filter Buttons */}
+      <div style={{ gridColumn: '1 / -1', marginBottom: '1rem', paddingLeft: '2rem' }}>
+        <button 
+          onClick={() => setSelectedPeriod('all_time')}
+          style={{
+            marginRight: '0.5rem',
+            padding: '0.5rem 1rem',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            backgroundColor: selectedPeriod === 'all_time' ? '#eee' : '#fff'
+          }}
+        >
+          All Time
+        </button>
+        <button 
+          onClick={() => setSelectedPeriod('past_30_days')}
+          style={{
+            marginRight: '0.5rem',
+            padding: '0.5rem 1rem',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            backgroundColor: selectedPeriod === 'past_30_days' ? '#eee' : '#fff'
+          }}
+        >
+          Past 30 Days
+        </button>
+        <button 
+          onClick={() => setSelectedPeriod('past_7_days')}
+          style={{
+            padding: '0.5rem 1rem',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            backgroundColor: selectedPeriod === 'past_7_days' ? '#eee' : '#fff'
+          }}
+        >
+          Past 7 Days
+        </button>
+      </div>
+
       <div className="dashboard-grid">
         {/* Summary Statistics */}
         <div className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
-          <h3>Summary</h3>
+          <h3>Summary ({selectedPeriod === 'all_time' ? 'All Time' : selectedPeriod === 'past_30_days' ? 'Past 30 Days' : 'Past 7 Days'})</h3>
           <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
             <div className="stat-item" style={{ flex: '0 0 auto' }}>
               <div className="stat-value" style={{ color: '#222' }}>{totalIssues}</div>
@@ -846,7 +948,7 @@ function Dashboard({ issues }: { issues: Issue[] }) {
 
         {/* Issues by Person with Horizontal Stacked Bars */}
         <div className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
-          <h3>Issues by Family Member</h3>
+          <h3>Issues by Family Member ({selectedPeriod === 'all_time' ? 'All Time' : selectedPeriod === 'past_30_days' ? 'Past 30 Days' : 'Past 7 Days'})</h3>
           <div style={{ padding: '1rem' }}>
             {issuesByPerson.map(person => (
               <div key={person.name} style={{ marginBottom: '1.5rem' }}>
@@ -916,49 +1018,76 @@ function Dashboard({ issues }: { issues: Issue[] }) {
                 </text>
               ))}
               
-              {/* Stacked bars */}
+              {/* Stacked bars and total counts */}
               {sortedMonths.map((month, i) => {
                 const data = monthlyData[month];
                 let yOffset = 250;
                 const barWidth = 80;
                 const x = 60 + (i * 120);
 
-                return ['3', '2', '1'].map(severity => {
-                  const count = data.bySeverity[severity] || 0;
-                  const height = (count / data.total) * 200;
-                  const y = yOffset - height;
-                  yOffset -= height;
+                // Calculate total issues for the month
+                const totalMonthIssues = Object.values(data.bySeverity).reduce((sum, count) => sum + (count || 0), 0);
 
-                  return (
-                    <g key={`${month}-${severity}`}>
-                      <rect
-                        x={x}
-                        y={y}
-                        width={barWidth}
-                        height={height}
-                        fill={
-                          severity === '3' ? colors.high :
-                          severity === '2' ? colors.medium :
-                          severity === '1' ? colors.low :
-                          '#9e9e9e'
-                        }
-                        opacity={1}
-                      />
-                      {height > 20 && (
-                        <text
-                          x={x + barWidth/2}
-                          y={y + height/2}
-                          textAnchor="middle"
-                          fill="#fff"
-                          fontSize="12"
-                          style={{ textShadow: '0 0 2px rgba(0,0,0,0.5)' }}
-                        >
-                          {count}
-                        </text>
-                      )}
-                    </g>
-                  );
-                });
+                // Render severity segments
+                const severitySegments = ['3', '2', '1'].map(severity => {
+                    const count = data.bySeverity[severity] || 0;
+                    // Scale height based on the maximum severity count across all months
+                    const height = (count / maxSeverityCountAcrossAllMonths) * 200; // 200 is the chart height in viewBox
+                    const y = yOffset - height;
+                    yOffset -= height;
+
+                    // Determine severity label for tooltip
+                    const severityLabel = severity === '1' ? 'Low' : severity === '2' ? 'Medium' : 'High';
+
+                    return (
+                      <g key={`${month}-${severity}`}>
+                        <rect
+                          x={x}
+                          y={y}
+                          width={barWidth}
+                          height={height}
+                          fill={
+                            severity === '3' ? colors.high :
+                            severity === '2' ? colors.medium :
+                            severity === '1' ? colors.low :
+                            '#9e9e9e'
+                          }
+                          opacity={1}
+                          onMouseEnter={(e) => {
+                            setTooltip({
+                              visible: true,
+                              content: `${count} ${severityLabel} issues`,
+                              x: e.clientX,
+                              y: e.clientY,
+                            });
+                          }}
+                          onMouseLeave={() => setTooltip({ visible: false, content: '', x: 0, y: 0 })}
+                        />
+                      </g>
+                    );
+                  });
+
+                // Render total count label above the bar
+                const totalCountLabel = totalMonthIssues > 0 && (
+                  <text
+                    key={`${month}-total`}
+                    x={x + barWidth / 2}
+                    y={250 + 15} // Position below the x-axis with a buffer
+                    textAnchor="middle"
+                    fill="#222"
+                    fontSize="12"
+                    fontWeight="bold"
+                  >
+                    {totalMonthIssues}
+                  </text>
+                );
+
+                return (
+                  <g key={`${month}-bar`}>
+                    {severitySegments}
+                    {totalCountLabel}
+                  </g>
+                );
               })}
             </svg>
           </div>
@@ -978,6 +1107,24 @@ function Dashboard({ issues }: { issues: Issue[] }) {
           </div>
         </div>
       </div>
+      {tooltip.visible && (
+        <div
+          style={{
+            position: 'fixed',
+            top: tooltip.y + 10,
+            left: tooltip.x + 10,
+            background: 'rgba(0, 0, 0, 0.7)',
+            color: '#fff',
+            padding: '5px 10px',
+            borderRadius: '4px',
+            fontSize: '0.9em',
+            pointerEvents: 'none', // Ensure tooltip doesn't interfere with hover
+            zIndex: 1000, // Ensure tooltip is on top
+          }}
+        >
+          {tooltip.content}
+        </div>
+      )}
     </div>
   );
 }
