@@ -41,6 +41,43 @@ function App() {
     localStorage.setItem('issues', JSON.stringify(issues));
   }, [issues]);
 
+  // Export issues to JSON file
+  function exportIssues() {
+    const blob = new Blob([JSON.stringify(issues, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `family-issues-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Import issues from JSON file
+  function importIssues(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedIssues = JSON.parse(e.target?.result as string);
+        // Validate the data structure
+        if (Array.isArray(importedIssues) && importedIssues.every(issue => 
+          issue.id && issue.title && issue.date && issue.observer)) {
+          setIssues(importedIssues);
+          alert('Data imported successfully!');
+        } else {
+          alert('Invalid data format');
+        }
+      } catch (error) {
+        alert('Error importing data');
+      }
+    };
+    reader.readAsText(file);
+    // Reset the file input
+    event.target.value = '';
+  }
+
   // Add new issue function
   function addIssue(newIssue: Omit<Issue, 'id'>) {
     const nextId = issues.length > 0 ? Math.max(...issues.map(i => i.id)) + 1 : 1;
@@ -76,6 +113,26 @@ function App() {
           <Route path="/edit-issue/:id" element={<EditIssue issues={issues} updateIssue={updateIssue} />} />
           <Route path="/dashboard" element={<Dashboard issues={issues} />} />
         </Routes>
+
+        {/* Data Management Buttons at the bottom */}
+        <div style={{ marginTop: '2rem', padding: '1rem 2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <button 
+            onClick={exportIssues}
+            className="util-btn"
+            style={{ fontSize: '0.9rem' }}
+          >
+            Export Data
+          </button>
+          <label className="util-btn" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>
+            Import Data
+            <input
+              type="file"
+              accept=".json"
+              onChange={importIssues}
+              style={{ display: 'none' }}
+            />
+          </label>
+        </div>
       </div>
     </Router>
   );
@@ -141,7 +198,9 @@ function Issues({ issues, deleteIssue }: { issues: Issue[]; deleteIssue: (id: nu
     .filter(issue => {
       const matchesText = issue.title.toLowerCase().includes(filterText.toLowerCase()) ||
                          issue.responsible.some(p => p.toLowerCase().includes(filterText.toLowerCase())) ||
-                         issue.observer.toLowerCase().includes(filterText.toLowerCase());
+                         issue.observer.toLowerCase().includes(filterText.toLowerCase()) ||
+                         (issue.description && issue.description.toLowerCase().includes(filterText.toLowerCase())) ||
+                         (issue.hashtags && issue.hashtags.toLowerCase().includes(filterText.toLowerCase()));
       const matchesPerson = !filterPerson || 
                            issue.responsible.includes(filterPerson) || 
                            issue.observer === filterPerson;
@@ -700,25 +759,17 @@ function Dashboard({ issues }: { issues: Issue[] }) {
       acc[severity] = (acc[severity] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    const high = severityBreakdown['3'] || 0;
-    const medium = severityBreakdown['2'] || 0;
+
     return {
       name: person,
       total,
-      highPct: total > 0 ? high / total : 0,
-      highOrMedPct: total > 0 ? (high + medium) / total : 0,
       severityBreakdown: Object.entries(severityBreakdown).map(([severity, count]) => ({
         severity,
         count,
         percentage: total > 0 ? Math.round((count / total) * 100) : 0
       }))
     };
-  }).sort((a, b) => {
-    if (b.total !== a.total) return b.total - a.total;
-    if (b.highPct !== a.highPct) return b.highPct - a.highPct;
-    if (b.highOrMedPct !== a.highOrMedPct) return b.highOrMedPct - a.highOrMedPct;
-    return a.name.localeCompare(b.name);
-  });
+  }).sort((a, b) => b.total - a.total); // Sort by total issues descending
 
   // Find the maximum number of issues for scaling
   const maxIssues = Math.max(...issuesByPerson.map(p => p.total));
